@@ -68,6 +68,8 @@ int seq_run(const traccc::opts::input_data& input_opts,
             const traccc::opts::track_resolution& resolution_opts,
             const traccc::opts::performance& performance_opts) {
 
+    std::cout << "<*><*><*> Starting seq_run <*><*><*>" << std::endl;
+
     // Memory resource used by the application.
     vecmem::host_memory_resource host_mr;
 
@@ -79,6 +81,7 @@ int seq_run(const traccc::opts::input_data& input_opts,
 
     using detector_type = detray::detector<detray::default_metadata,
                                            detray::host_container_types>;
+    std::cout << "<*><*><*> use_detray_detector? <*><*><*>" << std::endl;
     detector_type detector{host_mr};
     if (detector_opts.use_detray_detector) {
         // Set up the detector reader configuration.
@@ -99,6 +102,7 @@ int seq_run(const traccc::opts::input_data& input_opts,
         detector = std::move(det.first);
     }
 
+    std::cout << "<*><*><*> Digi config <*><*><*>" << std::endl;
     // Read the digitization configuration file
     auto digi_cfg =
         traccc::io::read_digitization_config(detector_opts.digitization_file);
@@ -166,8 +170,10 @@ int seq_run(const traccc::opts::input_data& input_opts,
     traccc::performance::timing_info elapsedTimes;
 
     // Loop over events
+    std::cout << "<*><*><*> Start looping over events <*><*><*>" << std::endl;
     for (unsigned int event = input_opts.skip;
          event < input_opts.events + input_opts.skip; ++event) {
+        std::cout << "<*><*><*> Event #" << event << " <*><*><*>" << std::endl;
 
         traccc::host::clusterization_algorithm::output_type
             measurements_per_event{&host_mr};
@@ -251,14 +257,49 @@ int seq_run(const traccc::opts::input_data& input_opts,
                 params = tp(spacepoints_per_event, seeds, field_vec);
             }
 
+            std::cout << "<*><*><*> use_detray_detector? (in loop) <*><*><*>"
+                      << std::endl;
             // Perform track finding and fitting only when using a Detray
             // geometry.
             if (detector_opts.use_detray_detector) {
                 {
                     traccc::performance::timer timer{"Track finding",
                                                      elapsedTimes};
+                    // TODO investigate the properties. Maybe useful for GX2F
                     track_candidates = finding_alg(
                         detector, field, measurements_per_event, params);
+                }
+                {
+                    std::cout << "<*><*><*> Check out the candidates <*><*><*>"
+                              << std::endl;
+                    std::cout << "\t" << "track_candidates.size(): "
+                              << track_candidates.size() << std::endl;
+                    std::cout << "\tLooping over candidates" << std::endl;
+                    for (std::size_t i=0; i < track_candidates.size(); i++) {
+                        std::cout << "\tTrack #" << i << std::endl;
+                        auto track = track_candidates.at(i);
+
+                        for (const auto& m : track.items) {
+
+                            // Find the detector surface that this measurement
+                            // sits on.
+                            const detray::surface<detray::detector<> >
+                                surface{detector, m.surface_link};
+
+                            // Calculate a position for this measurement in
+                            // global 3D space.
+                            const auto global = surface.bound_to_global({},
+                                                                        m.local,
+                                                                        {});
+
+                            // Write the 3D coordinates of the measurement /
+                            // spacepoint.
+                            assert(global.size() == 3);
+                            std::cout << "\t\t" << "measurement: " << global[0]
+                                      << " " << global[1] << " " << global[2]
+                                      << std::endl;
+                        }
+                    }
                 }
                 if (output_opts.directory != "") {
                     traccc::io::write(
