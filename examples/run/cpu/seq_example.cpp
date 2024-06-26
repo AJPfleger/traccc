@@ -279,6 +279,14 @@ int seq_run(const traccc::opts::input_data& input_opts,
                         std::cout << "\tTrack #" << i << std::endl;
                         auto track = track_candidates.at(i);
 
+                        const traccc::bound_track_parameters& boundParams =
+                            track.header;
+
+                        // BoundParameter are a detray object. Find more here:
+                        // https://github.com/acts-project/detray/blob/main/core/include/detray/tracks/bound_track_parameters.hpp
+                        std::cout << "\tParameters dir0: " <<
+                            boundParams.dir().at(0) << std::endl;
+
                         for (const auto& m : track.items) {
 
                             // Find the detector surface that this measurement
